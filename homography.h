@@ -4,7 +4,7 @@
 #include <memory>
 #include <array>
 #include <functional>
-#include "cuda_runtime.h"
+#include <cuda_runtime.h>
 #include "nppi.h"
 
 #include "/home/bhaynes/projects/eigen/Eigen/Dense"
@@ -37,6 +37,15 @@ namespace vfs::graphics {
         NppiSize size() const { return {static_cast<int>(width()), static_cast<int>(height())}; }
         NppiRect extent() const { return {0, 0, static_cast<int>(width()), static_cast<int>(height())}; }
 
+        template<typename T>
+        std::vector<T> download() const {
+            std::vector<T> output;
+            output.reserve(sizeof(T) * GpuImage<channels>::height() * GpuImage<channels>::width());
+            cudaMemcpy2D(output, sizeof(T) * GpuImage<channels>::width(), device(),
+                         static_cast<size_t>(step()), width(), height(), cudaMemcpyDeviceToHost);
+            return output;
+        }
+
     protected:
         void device(void* value) { device_ = value; }
 
@@ -49,15 +58,18 @@ namespace vfs::graphics {
     template<const size_t channels, typename T>
     class GpuImage<channels, T>: public GpuImage<channels> {
     public:
+        using allocator_t = std::function<T*(int, int, int*)>;
+        using copier = std::function<NppStatus(const T*, int, T*, int, NppiSize)>;
+
         //GpuImage(const T* device, const int step, const size_t height, const size_t width)
         //        : GpuImage<channels>(static_cast<void*>(device), step, height, width), owned_(false)
         //{ }
 
-        GpuImage(const std::function<T*(int, int, int*)> &allocator, const size_t height, const size_t width)
+        GpuImage(const allocator_t &allocator, const size_t height, const size_t width)
                 : GpuImage<channels, T>(allocate(allocator, height, width), allocator, height, width)
         { }
 
-        GpuImage(const std::vector<T> &data, const std::function<T*(int, int, int*)> &allocator, const size_t height, const size_t width)
+        GpuImage(const std::vector<T> &data, const allocator_t &allocator, const size_t height, const size_t width)
                 : GpuImage<channels, T>(allocate(allocator, height, width), allocator, height, width) {
             if(cudaMemcpy2D(GpuImage<channels>::device(), static_cast<size_t>(GpuImage<channels>::step()),
                             data.data(), sizeof(T) * channels * width,
@@ -72,35 +84,62 @@ namespace vfs::graphics {
         }
 
         T* device() const { return static_cast<T*>(GpuImage<channels>::device()); }
+        std::vector<T> download() const {
+            std::vector<T> output;
+            output.resize(channels * GpuImage<channels>::height() * GpuImage<channels>::width());
+            cudaMemcpy2D(output.data(),
+                         sizeof(T) * channels * GpuImage<channels>::width(),
+                         device(),
+                         static_cast<size_t>(GpuImage<channels>::step()),
+                         sizeof(T) * channels * GpuImage<channels>::width(),
+                         GpuImage<channels>::height(), cudaMemcpyDeviceToHost);
+            return output;
+        }
 
         size_t byte_step() const { return sizeof(T) * channels * GpuImage<channels>::step(); }
         int sbyte_step() const { return static_cast<int>(byte_step()); }
 
-        GpuImage<channels, T> slice(const std::function<NppStatus(const T*, int, T*, int, NppiSize)> copier, const NppiRect &region) const {
-            auto slice = GpuImage<channels, T>(allocator_, GpuImage<channels>::height(), GpuImage<channels>::width());
-            auto offset = region.y * GpuImage<channels>::step() + region.x + sizeof(T);
-            if(copier(device() + offset, GpuImage<channels>::step(), slice.device(), slice.step(), {region.width, region.height}) != NPP_SUCCESS)
+        const allocator_t& allocator() const { return allocator_; }
+
+        GpuImage<channels, T> slice(
+                const copier copier,
+                const NppiRect &region) const {
+            auto output = GpuImage<channels, T>(allocator_, GpuImage<channels>::height(), GpuImage<channels>::width());
+            slice(output, copier, region);
+            return output;
+        }
+
+        GpuImage<channels, T>& slice(
+                GpuImage<channels, T> &output,
+                const copier &copier,
+                const NppiRect &region) const {
+            auto offset = region.y * GpuImage<channels>::step() + region.x * sizeof(T);
+            if(region.height != output.sheight() || region.width != output.swidth())
+                throw std::runtime_error("Slice region does not match output image size");
+            else if(copier(device() + offset, GpuImage<channels>::step(), output.device(), output.step(), {region.width, region.height}) != NPP_SUCCESS)
                 throw std::runtime_error("Error copying during slice");
-            return slice;
+            return output;
         }
 
     private:
-        GpuImage(const std::pair<T*, int> &pair, const std::function<T*(int, int, int*)> allocator, const size_t height, const size_t width)
+        GpuImage(const std::pair<T*, int> &pair, const allocator_t allocator, const size_t height, const size_t width)
                 : GpuImage<channels>(pair.first, pair.second, height, width), owned_(true), allocator_(allocator)
         { }
 
-        std::pair<T*, int> allocate(const std::function<T*(int, int, int*)> &allocator, const size_t height, const size_t width) {
+        std::pair<T*, int> allocate(const allocator_t &allocator, const size_t height, const size_t width) {
             int step;
             T* device;
 
-            if((device = allocator(static_cast<int>(width), static_cast<int>(height), &step)) != nullptr)
+            if(width == 0u || height == 0u) {
+                throw std::runtime_error("Cannot allocate image with zero width or height");
+            } else if((device = allocator(static_cast<int>(width), static_cast<int>(height), &step)) != nullptr)
                 return {device, step};
             else
                 throw std::runtime_error("Failed to allocate memory");
         }
 
         const bool owned_;
-        const std::function<T*(int, int, int*)> allocator_;
+        const allocator_t allocator_;
     };
 
     struct Partitions {
@@ -124,10 +163,23 @@ namespace vfs::graphics {
         }
 
         std::array<double[3], 3> matrix() const {
+            //TODO memoize this
             std::array<double[3], 3> matrix;
 
             for(auto i = 0u; i < values_.size(); i++)
-                matrix.at(i % 3)[i / 3] = values_.at(i);
+                matrix.at(i / 3)[i % 3] = values_.at(i);
+                //matrix.at(i % 3)[i / 3] = values_.at(i);
+            //matrix[0][0] = 1;
+            //matrix[0][1] = 0;
+            //matrix[0][2] = 0;
+
+            //matrix[1][0] = 0;
+            //matrix[1][1] = 1;
+            //matrix[1][2] = 0;
+
+            //matrix[2][0] = 0;
+            //matrix[2][1] = 0;
+            //matrix[2][2] = 1;
             return matrix;
         }
 

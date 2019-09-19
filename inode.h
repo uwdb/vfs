@@ -19,14 +19,12 @@ namespace vfs{
     class Inode {
     public:
         //TODO Think I can get rid of these
-        enum InodeType {
-            directory, file, link, socket //, error
-        };
+        //enum InodeType {
+        //    directory, file, link, socket //, error
+        //};
 
-        Inode(const std::string &name, const Directory&, InodeType, mode_t = 0644);
-        Inode(std::string name, const Mount &mount, const Directory &parent, InodeType type, mode_t mode = 0644)
-                : name_(std::move(name)), mount_(mount), parent_(parent), type_(type), mode_(mode)
-        { }
+        Inode(const std::string &name, const Directory&, mode_t = 0644);
+        Inode(std::string name, const Mount &mount, const Directory &parent, mode_t mode = 0644);
         Inode(const Inode &) = delete;
         Inode(Inode &&) = default;
         virtual ~Inode() = default;
@@ -37,13 +35,13 @@ namespace vfs{
         const std::string &name() const { return name_; }
 
         mode_t mode() const { return mode_; }
-        InodeType type() const { return type_; }
+        //InodeType type() const { return type_; }
         //void type(InodeType type) { type_ = type; }
         const Directory &parent() const { return parent_; }
         //void parent(Directory &parent) { parent_ = parent; }
         const Mount &mount() const { return mount_; }
         //void mount(Mount &mount) { mount_ = mount; }
-        std::filesystem::path path() const;
+        const std::filesystem::path &path() const { return path_; }
 
     //    virtual Inode * leaf(Path *path) { return this; }
 
@@ -52,9 +50,10 @@ namespace vfs{
 
     protected:
         const std::string name_;
+        const std::filesystem::path path_;
         const Mount &mount_; //TODO remove
         const Directory &parent_;
-        const InodeType type_;
+        //const InodeType type_;
         const mode_t mode_;
     };
 
@@ -74,10 +73,10 @@ namespace vfs{
     class Directory : public Inode {
     public:
         Directory(const std::string &name, const Directory &parent, mode_t mode)
-                : Inode(name, parent, directory, mode), files_(0), directories_(0)
+                : Inode(name, parent, mode), files_(0), directories_(0)
         { }
         Directory(const Mount &mount, mode_t mode)
-                : Inode({}, mount, *this, directory, mode), files_(0), directories_(0)
+                : Inode({}, mount, *this, mode), files_(0), directories_(0)
         { }
 
         virtual std::optional<std::reference_wrapper<Inode>> find_child(const std::string &name) {
@@ -135,7 +134,7 @@ namespace vfs{
     class File : public Inode {
     public:
         File(const std::string &name, const Directory &directory, const mode_t mode)
-                : Inode(name, directory, file, mode), size_(0)
+                : Inode(name, directory, mode), size_(0)
         { }
         //virtual ~File() = default;
         int getattr(struct stat *st) override;
@@ -155,14 +154,14 @@ namespace vfs{
     class Link : public Inode {
     public:
         Link(const std::string &name, std::filesystem::path path, const Directory &directory, mode_t mode)
-                : Inode(name, directory, Inode::link, mode), path_(std::move(path))
+                : Inode(name, directory, mode), path_(std::move(path))
         { }
 
         int getattr(struct stat *st) override;
         virtual int readlink(char *buf, size_t size);
 
     private:
-        std::string path_;
+        std::filesystem::path path_;
     };
 
 } // namespace vfs

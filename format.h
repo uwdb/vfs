@@ -1,0 +1,60 @@
+#ifndef VFS_FORMAT_H
+#define VFS_FORMAT_H
+
+class VideoFormat {
+public:
+    enum Value {
+        RGB8,
+        YUV422,
+        H264,
+        HEVC
+    };
+
+    static VideoFormat get_from_extension(const std::filesystem::path &path) {
+        if(path.extension() == ".rgb")
+            return RGB8;
+        else if(path.extension() == ".yuv")
+            return YUV422;
+        else if(path.extension() == ".h264")
+            return H264;
+        else if(path.extension() == ".hevc")
+            return HEVC;
+        else
+            throw std::runtime_error("Unrecognized extension");
+    }
+
+    constexpr size_t buffer_size(const size_t height, const size_t width) {
+        switch(value_) {
+            case RGB8:
+                return 3 * height * width;
+            case YUV422:
+                return 3/2 * height * width;
+            case HEVC:
+            case H264:
+                return 128 * 1024;
+        }
+    }
+    
+    constexpr std::optional<size_t> frame_size(const size_t height, const size_t width) {
+        switch(value_) {
+            case RGB8:
+                return 3 * height * width;
+            case YUV422:
+                return 3/2 * height * width;
+            case HEVC:
+            case H264:
+                return {};
+        }
+    }
+
+    VideoFormat() = default;
+    constexpr VideoFormat(Value value) : value_(value) { }
+
+    explicit operator bool() = delete;
+
+    operator Value() const { return value_; }
+private:
+    Value value_;
+};
+
+#endif //VFS_FORMAT_H

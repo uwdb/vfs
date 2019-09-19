@@ -4,6 +4,7 @@
 #include "nativevideo.h"
 #include "virtualvideo.h"
 #include "writablevideo.h"
+#include "policy.h"
 
 namespace vfs {
     class NativeVideo;
@@ -45,6 +46,13 @@ namespace vfs {
                                [](const auto &child) { return dynamic_cast<const NativeVideo*>(child.get()) != nullptr; });
         }
 
+        void opened(VirtualVideo &video) {
+            opened_.insert(video);
+        }
+
+        void closed(VirtualVideo &video) {
+            opened_.erase(video);
+        }
 
         //Inode * leaf(Path *path) override;
         //void add_child(const std::string &name, std::unique_ptr<Inode> node);
@@ -71,6 +79,7 @@ namespace vfs {
                 auto crop_height = std::stof('0' + matches[6].str()) / 100;
                 auto time_start = std::stof('0' + matches[7].str());
                 auto time_end = std::stof('0' + matches[8].str());
+                auto format = VideoFormat::get_from_extension(path() / name);
 
                 //if(!has_native_child() &&
                 //   crop_left == 0 && crop_top == 0 &&
@@ -78,7 +87,7 @@ namespace vfs {
                 //   time_start == 0 && time_end == 0)
                 //    return std::optional<std::reference_wrapper<Inode>>{std::reference_wrapper(emplace_child(std::make_unique<WritableVirtualVideo>(name, *this, width, height, 0777)))};
                 //else if(has_native_child())
-                    return std::optional<std::reference_wrapper<Inode>>{std::reference_wrapper(emplace_child(std::make_unique<VirtualVideo>(name, *this, width, height, 0777)))};
+                    return std::optional<std::reference_wrapper<Inode>>{std::reference_wrapper(emplace_child(std::make_unique<VirtualVideo>(name, *this, format, height, width, 0777)))};
                 //else
                 //    return {};
             }
@@ -92,6 +101,11 @@ namespace vfs {
 
             return {};
         }
+
+        Policy policy_;
+        std::set<std::reference_wrapper<VirtualVideo>,
+                 std::function<bool(const std::reference_wrapper<VirtualVideo>&,
+                                    const std::reference_wrapper<VirtualVideo>&)>> opened_;
     };
 
 } // namespace vfs

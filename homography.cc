@@ -2,8 +2,8 @@
 #include <glog/logging.h>
 #include "homography.h"
 
-#include <iostream>
-#include <cuda.h>
+//#include <iostream>
+//#include <cuda.h>
 #include "/home/bhaynes/projects/CudaSift/cudaSift.h"
 
 namespace vfs::graphics {

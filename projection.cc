@@ -37,7 +37,7 @@ def partition(H, Hi, left):
     return p0, right, p1, (ymin, ymax)
  */
 
-    std::tuple<GpuImage<3, Npp8u>, GpuImage<3, Npp8u>, GpuImage<3, Npp8u>> partition(
+    /*std::tuple<GpuImage<3, Npp8u>, GpuImage<3, Npp8u>, GpuImage<3, Npp8u>> partition(
             const GpuImage<3, Npp8u> &input, const Homography &homography){
         auto partitions = homography.partitions(input.size());
 
@@ -64,55 +64,41 @@ def partition(H, Hi, left):
                                  0,
                                  input.swidth() - static_cast<int>(partitions.left.x0),
                                  static_cast<int>(input.height())}));
-                //GpuImage<3, Npp8u>(nppiMalloc_8u_C3, 100, 100),
-                //GpuImage<3, Npp8u>(nppiMalloc_8u_C3, 100, 100),
-                //GpuImage<3, Npp8u>(nppiMalloc_8u_C3, 100, 100));
-    }
+    }*/
 
-    void temp(const GpuImage<3, Npp8u> &input, GpuImage<3, Npp8u> &output, const Homography& homography) {
-        if(nppiWarpPerspective_8u_C3R(input.device(), input.size(), input.step(), input.extent(),
-                                      output.device(), output.step(), output.extent(),
-                                      homography.matrix().data(),
-                                      NPPI_INTER_NN) != NPP_SUCCESS)
-            throw std::runtime_error("Projection failed");
+    PartitionBuffer& partition(const GpuImage<3, Npp8u> &input, PartitionBuffer &output){
+        // Left
+        if(output.has_left())
+            input.slice(output.left(),
+                        nppiCopy_8u_C3R,
+                        NppiRect{0,
+                                 0,
+                                 static_cast<int>(output.left().width()),
+                                 static_cast<int>(output.left().height())});
+        // Overlap
+        if(output.has_overlap())
+            input.slice(output.overlap(),
+                        nppiCopy_8u_C3R,
+                        NppiRect{static_cast<int>(output.partitions().left.x0),
+                                 0,
+                                 output.overlap().swidth(),
+                                 output.overlap().sheight()});
+        // Right
+        if(output.has_right())
+            input.slice(output.right(),
+                        nppiCopy_8u_C3R,
+                        NppiRect{static_cast<int>(output.partitions().left.x0),
+                                 0,
+                                 output.right().swidth(),
+                                 output.right().sheight()});
+        return output;
     }
 
     void project(const GpuImage<3, Npp8u> &input, GpuImage<3, Npp8u> &output, const Homography& homography) {
-        GpuImage<3, Npp8u> o1{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o2{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o3{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o4{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o5{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o6{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o7{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o8{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o9{nppiMalloc_8u_C3, output.height(), output.width()};
-        GpuImage<3, Npp8u> o10{nppiMalloc_8u_C3, output.height(), output.width()};
-
-        auto start = std::chrono::high_resolution_clock::now();
-        /*temp(input, o1, homography);
-        temp(input, o2, homography);
-        temp(input, o3, homography);
-        temp(input, o4, homography);
-        temp(input, o5, homography);
-        temp(input, o6, homography);
-        temp(input, o7, homography);
-        temp(input, o8, homography);
-        temp(input, o9, homography);
-        temp(input, o10, homography);*/
-        for(auto i = 0u; i < 100; i++)
-            partition(input, homography);
-        cudaDeviceSynchronize();
-        auto end = std::chrono::high_resolution_clock::now();
-
-        auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-
-        printf("ms %lu\n", duration.count());
-
-        /*if(nppiWarpPerspective_8u_C3R(input.device(), input.size(), input.step(), input.extent(),
+        if(nppiWarpPerspective_8u_C3R(input.device(), input.size(), input.step(), input.extent(),
                                   output.device(), output.step(), output.extent(),
                                   homography.matrix().data(),
                                   NPPI_INTER_NN) != NPP_SUCCESS)
-        throw std::runtime_error("Projection failed");*/
+        throw std::runtime_error("Projection failed");
     }
 }

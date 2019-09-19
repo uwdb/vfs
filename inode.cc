@@ -7,8 +7,12 @@
 
 namespace vfs {
 
-Inode::Inode(const std::string &name, const Directory &parent, InodeType type, mode_t mode)
-        : Inode(name, parent.mount(), parent, type, mode)
+Inode::Inode(std::string name, const Mount &mount, const Directory &parent, mode_t mode)
+    : name_(std::move(name)), path_(parent.path() / name), mount_(mount), parent_(parent), mode_(mode)
+{ }
+
+Inode::Inode(const std::string &name, const Directory &parent, mode_t mode)
+    : Inode(name, parent.mount(), parent, mode)
 { }
 
 //Error::Error(const Mount& mount, int error)
@@ -80,7 +84,7 @@ int Directory::readdir(void *buffer, vfs::fuse_fill_dir_t filler, off_t offset, 
     int Link::getattr(struct stat *stat) {
         stat->st_mode = S_IFLNK | 0777;
         stat->st_nlink = 1;
-        stat->st_size = path_.size();
+        stat->st_size = path_.string().size();
         return 0;
     }
 
