@@ -66,18 +66,18 @@ def partition(H, Hi, left):
                                  static_cast<int>(input.height())}));
     }*/
 
-    PartitionBuffer& partition(const GpuImage<3, Npp8u> &input, PartitionBuffer &output){
+    PartitionBuffer& partition(const GpuImage<3, Npp8u> &left, const GpuImage<3, Npp8u> &right, PartitionBuffer &output){
         // Left
         if(output.has_left())
-            input.slice(output.left(),
-                        nppiCopy_8u_C3R,
-                        NppiRect{0,
-                                 0,
-                                 static_cast<int>(output.left().width()),
-                                 static_cast<int>(output.left().height())});
+            left.slice(output.left(),
+                       nppiCopy_8u_C3R,
+                       NppiRect{0,
+                                0,
+                                static_cast<int>(output.left().width()),
+                                static_cast<int>(output.left().height())});
         // Overlap
         if(output.has_overlap())
-            input.slice(output.overlap(),
+            left.slice(output.overlap(),
                         nppiCopy_8u_C3R,
                         NppiRect{static_cast<int>(output.partitions().left.x0),
                                  0,
@@ -85,7 +85,7 @@ def partition(H, Hi, left):
                                  output.overlap().sheight()});
         // Right
         if(output.has_right())
-            input.slice(output.right(),
+            right.slice(output.right(),
                         nppiCopy_8u_C3R,
                         NppiRect{static_cast<int>(output.partitions().left.x0),
                                  0,

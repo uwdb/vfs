@@ -17,6 +17,7 @@ namespace vfs::graphics {
                       make_frame(input.allocator(), input.height(), widths_.overlap)}
         { }
 
+        const Homography& homography() const { return homography_; }
         const Partitions& partitions() const { return partitions_; }
 
         bool has_left() const { return frames_.left != nullptr; }
@@ -46,7 +47,7 @@ namespace vfs::graphics {
         } frames_;
     };
 
-    PartitionBuffer& partition(const GpuImage<3, Npp8u> &input, PartitionBuffer &output);
+    PartitionBuffer& partition(const GpuImage<3, Npp8u> &left, const GpuImage<3, Npp8u> &right, PartitionBuffer &output);
     //std::tuple<GpuImage<3, Npp8u>, GpuImage<3, Npp8u>, GpuImage<3, Npp8u>> partition(
     //        const GpuImage<3, Npp8u>&, const Homography&);
     void project(const GpuImage<3, Npp8u> &input, GpuImage<3, Npp8u> &output, const Homography&);

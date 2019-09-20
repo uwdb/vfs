@@ -2,6 +2,7 @@
 #define VFS_WRITABLEVIDEO_H
 
 #include "inode.h"
+#include "jointcompression.h"
 
 namespace vfs {
 
@@ -15,6 +16,7 @@ namespace vfs {
         int truncate(off_t) override { return 0; }
 
     private:
+        std::unique_ptr<graphics::VideoWriter> writer_;
         std::vector<unsigned char> buffer_;
         std::vector<unsigned char>::iterator head_;
         std::vector<unsigned char>::iterator tail_;

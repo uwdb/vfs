@@ -32,6 +32,8 @@ public:
             case HEVC:
             case H264:
                 return 128u * 1024u;
+            default:
+                throw std::runtime_error("Unsupported format");
         }
     }
 
@@ -44,6 +46,8 @@ public:
             case HEVC:
             case H264:
                 return {};
+            default:
+                throw std::runtime_error("Unsupported format");
         }
     }
 

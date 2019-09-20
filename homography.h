@@ -41,8 +41,9 @@ namespace vfs::graphics {
         std::vector<T> download() const {
             std::vector<T> output;
             output.reserve(sizeof(T) * GpuImage<channels>::height() * GpuImage<channels>::width());
-            cudaMemcpy2D(output, sizeof(T) * GpuImage<channels>::width(), device(),
-                         static_cast<size_t>(step()), width(), height(), cudaMemcpyDeviceToHost);
+            if(cudaMemcpy2D(output, sizeof(T) * GpuImage<channels>::width(), device(),
+                            static_cast<size_t>(step()), width(), height(), cudaMemcpyDeviceToHost) != cudaSuccess)
+                throw std::runtime_error("Error downloading frame");
             return output;
         }
 
@@ -84,15 +85,27 @@ namespace vfs::graphics {
         }
 
         T* device() const { return static_cast<T*>(GpuImage<channels>::device()); }
+        template<typename iterator>
+        void upload(const iterator data) const {
+            if(cudaMemcpy2D(device(),
+                            static_cast<size_t>(GpuImage<channels>::step()),
+                            &*data,
+                            sizeof(T) * channels * GpuImage<channels>::width(),
+                            sizeof(T) * channels * GpuImage<channels>::width(),
+                            GpuImage<channels>::height(),
+                            cudaMemcpyHostToDevice) != cudaSuccess)
+                throw std::runtime_error("Error uploading frame");
+        }
         std::vector<T> download() const {
             std::vector<T> output;
             output.resize(channels * GpuImage<channels>::height() * GpuImage<channels>::width());
-            cudaMemcpy2D(output.data(),
-                         sizeof(T) * channels * GpuImage<channels>::width(),
-                         device(),
-                         static_cast<size_t>(GpuImage<channels>::step()),
-                         sizeof(T) * channels * GpuImage<channels>::width(),
-                         GpuImage<channels>::height(), cudaMemcpyDeviceToHost);
+            if(cudaMemcpy2D(output.data(),
+                            sizeof(T) * channels * GpuImage<channels>::width(),
+                            device(),
+                            static_cast<size_t>(GpuImage<channels>::step()),
+                            sizeof(T) * channels * GpuImage<channels>::width(),
+                            GpuImage<channels>::height(), cudaMemcpyDeviceToHost) != cudaSuccess)
+                throw std::runtime_error("Error downloading frame");
             return output;
         }
 
@@ -161,6 +174,9 @@ namespace vfs::graphics {
         explicit operator float*() {
             return values_.data();
         }
+
+        bool operator==(const Homography& other) const { return values_ == other.values_; }
+        bool operator!=(const Homography& other) const { return !(*this == other); }
 
         std::array<double[3], 3> matrix() const {
             //TODO memoize this
