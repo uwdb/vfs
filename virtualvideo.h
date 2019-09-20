@@ -7,7 +7,6 @@
 namespace vfs {
     class VirtualVideo: public File {
     public:
-
         VirtualVideo(const std::string &name, Video&, VideoFormat format, size_t height, size_t width, mode_t);
 
         size_t height() const { return height_; }
@@ -20,10 +19,14 @@ namespace vfs {
         int read(const std::filesystem::path&, char*, size_t, off_t, struct fuse_file_info&) override;
         int write(const char*, size_t, off_t, struct fuse_file_info&) override { return EACCES; }
 
+    protected:
+        const std::optional<size_t> &frame_size() const { return frame_size_; }
+
     private:
         Video &source_;
         const VideoFormat format_;
         const size_t width_, height_;
+        const std::optional<size_t> frame_size_;
     };
 
 } // namespace vfs

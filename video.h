@@ -66,13 +66,13 @@ namespace vfs {
         //std::string path(const Inode *node) const;
     private:
         std::optional<std::reference_wrapper<Inode>> find_virtual_child(const std::string &name) {
-            std::regex expression{R"((\d+)x(\d+)(?:c(\d+)-(\d+)-(\d+)-(\d+))?(?:t(\d+)-(\d+))?\.(hevc|h264))"};
+            std::regex expression{R"((\d+)x(\d+)(?:c(\d+)-(\d+)-(\d+)-(\d+))?(?:t(\d+)-(\d+))?\.(hevc|h264|rgb|yuv))"};
             std::smatch matches;
 
             //if(std::regex_match(name, expression)) {
             if(std::regex_search(name, matches, expression)) {
-                auto width = std::stoul(matches[0]);
-                auto height = std::stoul(matches[1]);
+                auto width = std::stoul(matches[1]);
+                auto height = std::stoul(matches[2]);
                 auto crop_left = std::stof('0' + matches[3].str()) / 100;
                 auto crop_top = std::stof('0' + matches[4].str()) / 100;
                 auto crop_width = std::stof('0' + matches[5].str()) / 100;

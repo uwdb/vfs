@@ -12,7 +12,7 @@ std::string usage() {
 void catf() {
     sleep(1);
     system("mkdir ../../mount/wolf");
-    system("cat ../input.rgb > ../../mount/wolf/1x12.hevc");
+    system("cat ../input.rgb > ../../mount/wolf/960x540.rgb");
 }
 
 int main(int argc, char **argv) {

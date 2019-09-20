@@ -23,19 +23,19 @@ public:
             throw std::runtime_error("Unrecognized extension");
     }
 
-    constexpr size_t buffer_size(const size_t height, const size_t width) {
+    constexpr size_t buffer_size(const size_t height, const size_t width) const {
         switch(value_) {
             case RGB8:
-                return 3 * height * width;
+                return 16u * frame_size(height, width).value();
             case YUV422:
-                return 3/2 * height * width;
+                return 16u * frame_size(height, width).value();
             case HEVC:
             case H264:
-                return 128 * 1024;
+                return 128u * 1024u;
         }
     }
-    
-    constexpr std::optional<size_t> frame_size(const size_t height, const size_t width) {
+
+    constexpr std::optional<size_t> frame_size(const size_t height, const size_t width) const {
         switch(value_) {
             case RGB8:
                 return 3 * height * width;

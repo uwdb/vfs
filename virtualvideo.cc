@@ -5,8 +5,9 @@
 
 namespace vfs {
 
-VirtualVideo::VirtualVideo(const std::string &name, Video& source, VideoFormat format, size_t width, size_t height, mode_t mode)
-        : File(name, source, mode), source_(source), format_(format), width_(width), height_(height)
+VirtualVideo::VirtualVideo(const std::string &name, Video& source, VideoFormat format, size_t height, size_t width, mode_t mode)
+        : File(name, source, mode), source_(source), format_(format),
+        width_(width), height_(height), frame_size_(format.frame_size(height, width))
 { }
 
 int VirtualVideo::open(struct fuse_file_info &info) {
@@ -14,7 +15,8 @@ int VirtualVideo::open(struct fuse_file_info &info) {
         return -EACCES;
     else if(info.flags & O_WRONLY) {
         //std::unique_ptr<Inode> writable = std::make_unique<WritableVirtualVideo>();
-        auto &writable = video().substitute(*this, std::make_unique<WritableVirtualVideo>(name(), video(), format(), width(), height(), mode()));
+        auto &writable = video().substitute(*this, std::make_unique<WritableVirtualVideo>(
+                name(), video(), format(), height(), width(), mode()));
         return writable.open(info); //video().write(*this, info);
     } else {
         File::open(info);

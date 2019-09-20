@@ -7,7 +7,7 @@ namespace vfs {
 
     class WritableVirtualVideo: public VirtualVideo {
     public:
-        WritableVirtualVideo(const VirtualVideo&);
+        explicit WritableVirtualVideo(const VirtualVideo&);
         WritableVirtualVideo(const std::string&, Video&, VideoFormat, size_t, size_t, mode_t);
 
         int open(struct fuse_file_info&) override;
@@ -16,6 +16,9 @@ namespace vfs {
 
     private:
         std::vector<unsigned char> buffer_;
+        std::vector<unsigned char>::iterator head_;
+        std::vector<unsigned char>::iterator tail_;
+        //size_t written_;
     };
 
 } // namespace vfs
