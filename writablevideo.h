@@ -16,11 +16,13 @@ namespace vfs {
         int truncate(off_t) override { return 0; }
 
     private:
+        static std::unique_ptr<graphics::VideoWriter> get_writer(Video&, size_t height, size_t width);
+
         std::unique_ptr<graphics::VideoWriter> writer_;
         std::vector<unsigned char> buffer_;
         std::vector<unsigned char>::iterator head_;
         std::vector<unsigned char>::iterator tail_;
-        //size_t written_;
+        size_t written_;
     };
 
 } // namespace vfs

@@ -11,19 +11,22 @@
 #include "/home/bhaynes/projects/CudaSift/cudaSift.h"
 
 namespace vfs {
+    std::unique_ptr<graphics::VideoWriter> WritableVirtualVideo::get_writer(Video &video, const size_t height, const size_t width) {
+        return std::make_unique<graphics::JointWriter<3>>(height, width, graphics::OneTimeHomographyUpdate{});
+    }
+
     WritableVirtualVideo::WritableVirtualVideo(const VirtualVideo &base)
         : WritableVirtualVideo(base.name(), base.video(), base.format(), base.height(), base.width(), base.mode())
     { }
 
-
     WritableVirtualVideo::WritableVirtualVideo(const std::string &name, Video &video, VideoFormat format,
                                                size_t height, size_t width, mode_t mode)
         : VirtualVideo(name, video, format, height, width, mode),
-          writer_(std::make_unique<graphics::JointWriter<3>>(height, width, graphics::OneTimeHomographyUpdate{})),
+          writer_(get_writer(video, height, width)),
           buffer_(format.buffer_size(height, width)),
           head_(buffer_.begin()),
-          tail_(head_)
-          //written_(0u)
+          tail_(head_),
+          written_(0u)
     { }
 
     int WritableVirtualVideo::open(struct fuse_file_info &info) {
@@ -44,14 +47,14 @@ namespace vfs {
         return 0;
     }
 
-
     int WritableVirtualVideo::write(const char* chunk, size_t size, off_t, struct fuse_file_info&) {
         //static std::array<char, 32*1024*1024> frame;
-        const auto copy_size = std::min(size, static_cast<size_t>(std::distance(buffer_.end(), tail_)));
+        const auto write_size = std::min(size, static_cast<size_t>(std::distance(buffer_.end(), tail_)));
 
         if(tail_ < buffer_.end()) {
-            std::copy(chunk, chunk + copy_size, tail_);
-            std::advance(tail_, copy_size);
+            std::copy(chunk, chunk + write_size, tail_);
+            std::advance(tail_, write_size);
+            written_ += write_size;
         }
         //if(current_ < buffer_.end()) {
         //    const auto copy_size = std::min(size, static_cast<size_t>(std::distance(buffer_.end(), current_)));
@@ -106,6 +109,6 @@ namespace vfs {
 */
         }
 
-        return static_cast<int>(copy_size);
+        return static_cast<int>(write_size);
     }
 } // namespace vfs
