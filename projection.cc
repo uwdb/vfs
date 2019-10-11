@@ -66,7 +66,7 @@ def partition(H, Hi, left):
                                  static_cast<int>(input.height())}));
     }*/
 
-    PartitionBuffer& partition(const GpuImage<3, Npp8u> &left, const GpuImage<3, Npp8u> &right, PartitionBuffer &output){
+    PartitionBuffer& partition(const GpuImage<3, Npp8u> &left, const GpuImage<3, Npp8u> &right, PartitionBuffer &output) {
         // Left
         if(output.has_left())
             left.slice(output.left(),

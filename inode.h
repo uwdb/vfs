@@ -142,7 +142,7 @@ namespace vfs{
         virtual int read(const std::filesystem::path&, char*, size_t, off_t, struct fuse_file_info&) = 0;
         virtual int write(const char*, size_t, off_t, struct fuse_file_info&) = 0;
         virtual int truncate(off_t) = 0; //{ return -EACCES; }
-        //virtual int flush(struct fuse_file_info *fi) { return 0; }
+        virtual int flush(struct fuse_file_info&) { return 0; }
     protected:
         //virtual size_t size() const { return size_; } //= 0;
         //int read_helper(const std::string &data, char *buf, size_t size,

@@ -96,7 +96,7 @@ namespace vfs::graphics {
                             cudaMemcpyHostToDevice) != cudaSuccess)
                 throw std::runtime_error("Error uploading frame");
         }
-        std::vector<T> download() const {
+        virtual std::vector<T> download() const {
             std::vector<T> output;
             output.resize(channels * GpuImage<channels>::height() * GpuImage<channels>::width());
             if(cudaMemcpy2D(output.data(),
@@ -129,7 +129,8 @@ namespace vfs::graphics {
             auto offset = region.y * GpuImage<channels>::step() + region.x * sizeof(T);
             if(region.height != output.sheight() || region.width != output.swidth())
                 throw std::runtime_error("Slice region does not match output image size");
-            else if(copier(device() + offset, GpuImage<channels>::step(), output.device(), output.step(), {region.width, region.height}) != NPP_SUCCESS)
+            else if(copier(device() + offset, GpuImage<channels>::step(), output.device(), output.step(),
+                           {region.width, region.height}) != NPP_SUCCESS)
                 throw std::runtime_error("Error copying during slice");
             return output;
         }

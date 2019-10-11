@@ -4,8 +4,9 @@
 #include "virtualvideo.h"
 #include "homography.h"
 #include "projection.h"
+#include "compressionwriter.h"
 
-namespace vfs::graphics {
+namespace vfs {
 template<size_t channels>
 class HomographyUpdateStrategy;
 
@@ -13,6 +14,7 @@ class VideoWriter {
 public:
     virtual void write(const std::vector<unsigned char>::iterator&,
                        const std::vector<unsigned char>::iterator&) = 0;
+    virtual void flush() = 0;
 };
 
 template<size_t channels>
@@ -24,7 +26,10 @@ public:
           right_frame_(nppiMalloc_8u_C3, height, width),
           configuration_{height, width},
           partitions_{},
-          homography_update_{std::make_unique<HomographyUpdateStrategy>(homography_update)}
+          homography_update_{std::make_unique<HomographyUpdateStrategy>(homography_update)},
+          left_writer_{"/tmp/v/left", 30},
+          overlap_writer_{"/tmp/v/overlap", 30},
+          right_writer_{"/tmp/v/right", 30}
     { }
 
     void write(const std::vector<unsigned char>::iterator &left,
@@ -38,25 +43,49 @@ public:
 
         graphics::partition(left_frame_, right_frame_, *partitions_);
         graphics::project(right_frame_, partitions_->overlap(), partitions_->homography());
+
+        if(partitions_->has_left())
+            left_writer_.write(partitions_->left());
+        if(partitions_->has_overlap())
+            overlap_writer_.write(partitions_->overlap());
+        if(partitions_->has_right())
+            right_writer_.write(partitions_->right());
     }
 
-    const GpuImage<channels, Npp8u>& left_frame() const { return left_frame_; }
-    const GpuImage<channels, Npp8u>& right_frame() const { return right_frame_; }
+    void flush() override {
+        if(partitions_ == nullptr)
+            return;
+
+        if(partitions_->has_left())
+            left_writer_.flush();
+        if(partitions_->has_overlap())
+            overlap_writer_.flush();
+        if(partitions_->has_right())
+            right_writer_.flush();
+    }
+
+    const graphics::GpuImage<channels, Npp8u>& left_frame() const { return left_frame_; }
+    const graphics::GpuImage<channels, Npp8u>& right_frame() const { return right_frame_; }
 
     bool has_homography() const { return partitions_ != nullptr; }
-    void homography(const Homography & homography) {
+    void homography(const graphics::Homography & homography) {
         if(partitions_ == nullptr || homography != partitions_->homography())
-            partitions_ = std::make_unique<PartitionBuffer>(left_frame_, homography);
+            partitions_ = std::make_unique<graphics::PartitionBuffer>(left_frame_, homography);
     }
-    SiftConfiguration& configuration() { return configuration_; }
+    graphics::SiftConfiguration& configuration() { return configuration_; }
 
 private:
-    GpuImage<channels, Npp8u> left_frame_;
-    GpuImage<channels, Npp8u> right_frame_;
+    graphics::GpuImage<channels, Npp8u> left_frame_;
+    graphics::GpuImage<channels, Npp8u> right_frame_;
 
-    SiftConfiguration configuration_;
-    std::unique_ptr<PartitionBuffer> partitions_;
+    graphics::SiftConfiguration configuration_;
+    std::unique_ptr<graphics::PartitionBuffer> partitions_;
     std::unique_ptr<HomographyUpdateStrategy<channels>> homography_update_;
+
+    //TODO this writer should be a composite
+    CompressionWriter left_writer_;
+    CompressionWriter overlap_writer_;
+    CompressionWriter right_writer_;
 };
 
 template<size_t channels>

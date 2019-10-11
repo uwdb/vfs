@@ -5,14 +5,17 @@
 #include "homography.h"
 #include "projection.h"
 #include "jointcompression.h"
+#include "compressionwriter.h"
 
 #include <iostream>
 #include <fuse/fuse.h>
 #include "/home/bhaynes/projects/CudaSift/cudaSift.h"
 
+#define HACK_INTERLEAVE_MULTIPLIER 2
+
 namespace vfs {
-    std::unique_ptr<graphics::VideoWriter> WritableVirtualVideo::get_writer(Video &video, const size_t height, const size_t width) {
-        return std::make_unique<graphics::JointWriter<3>>(height, width, graphics::OneTimeHomographyUpdate{});
+    std::unique_ptr<VideoWriter> WritableVirtualVideo::get_writer(Video &video, const size_t height, const size_t width) {
+        return std::make_unique<JointWriter<3>>(height, width, OneTimeHomographyUpdate{});
     }
 
     WritableVirtualVideo::WritableVirtualVideo(const VirtualVideo &base)
@@ -23,7 +26,7 @@ namespace vfs {
                                                size_t height, size_t width, mode_t mode)
         : VirtualVideo(name, video, format, height, width, mode),
           writer_(get_writer(video, height, width)),
-          buffer_(format.buffer_size(height, width)),
+          buffer_(/*TODO*/HACK_INTERLEAVE_MULTIPLIER * format.buffer_size(height, width)),
           head_(buffer_.begin()),
           tail_(head_),
           written_(0u)
@@ -48,67 +51,31 @@ namespace vfs {
     }
 
     int WritableVirtualVideo::write(const char* chunk, size_t size, off_t, struct fuse_file_info&) {
-        //static std::array<char, 32*1024*1024> frame;
-        const auto write_size = std::min(size, static_cast<size_t>(std::distance(buffer_.end(), tail_)));
+        const auto write_size = std::max(0l, std::min(static_cast<ssize_t>(size), static_cast<ssize_t>(std::distance(tail_, buffer_.end()))));
 
-        if(tail_ < buffer_.end()) {
+        if(write_size > 0) {
+        //if(tail_  < buffer_.end()) {
             std::copy(chunk, chunk + write_size, tail_);
             std::advance(tail_, write_size);
             written_ += write_size;
         }
-        //if(current_ < buffer_.end()) {
-        //    const auto copy_size = std::min(size, static_cast<size_t>(std::distance(buffer_.end(), current_)));
-        //    std::copy(chunk, chunk + copy_size, current_ + copy_size);
-        //    std::advance(current_, copy_size);
-        //}
-        //std::copy(chunk, chunk + size, buffer_.begin() + offset);
 
-        //const auto height = 540u, width = 960u;
-        //if(offset >= 1555200 - 4096) {
-        //long d = std::distance(tail_, head_), f = format().frame_size(height, width).value();
-        if(std::distance(head_, tail_) >= static_cast<ssize_t>(frame_size().value())) {
-            //std::vector<unsigned char> left{buffer_.begin(), buffer_.begin() + offset + size};
-            //std::vector<unsigned char> right{buffer_.begin(), buffer_.begin() + offset + size   };
-            //std::vector<unsigned char> left{head_, head_ + frame_size().value()};
-            //std::vector<unsigned char> right{head_, head_ + frame_size().value()};
+        while(std::distance(head_, tail_) >= HACK_INTERLEAVE_MULTIPLIER * static_cast<ssize_t>(frame_size().value())) {
+            const auto &left = head_;
+            const auto &right = head_ + frame_size().value();
 
-            writer_->write(head_, head_);
-            std::advance(head_, frame_size().value());
+            writer_->write(left, right);
+            std::advance(head_, HACK_INTERLEAVE_MULTIPLIER * frame_size().value());
             if(head_ >= tail_)
-                head_ = buffer_.begin();
-
-            //graphics::GpuImage<3, Npp8u> gpu_left{left, nppiMalloc_8u_C3, height(), width()};
-            //graphics::GpuImage<3, Npp8u> gpu_right{right, nppiMalloc_8u_C3, height(), width()};
-            //graphics::SiftConfiguration configuration{height(), width()};
-
-            //auto homography = graphics::find_homography(gpu_left, gpu_right, configuration);
-
-            //graphics::PartitionBuffer partition{gpu_left, homography};
-            //auto [pleft, overlap, pright] = graphics::partition(gpu_left, homography);
-            //graphics::partition(gpu_left, partition);
-            //graphics::GpuImage<3, Npp8u> result{nppiMalloc_8u_C3, overlap.height(), overlap.width()};
-            //graphics::project(gpu_right, partition.overlap(), homography);
-
-            //FILE *out = fopen("../input_left.rgb", "w");
-            //auto data = gpu_left.download();
-            //fwrite(data.data(), data.size(), sizeof(Npp8u), out);
-            //fclose(out);
-
-            //out = fopen("../projected.rgb", "w");
-            //data = partition.overlap().download();
-            //fwrite(data.data(), data.size(), sizeof(Npp8u), out);
-            //fclose(out);
-
-/*
-            auto r2 = nppiWarpPerspective_8u_C3R(source, {width, height}, source_step, source_roi, target, target_step, target_roi, H, NPPI_INTER_NN);
-
-            //auto r5 = nppiConvert_32f8u_C3R(fsource, fsource_step, target, 3 * target_step, convert_roi, NPP_ROUND_NEAREST_TIES_TO_EVEN);
-
-            //auto r3 = cudaMemcpy2D(result.data(), sizeof(Npp8u) * 3 * width, source, sizeof(Npp8u) * source_step, sizeof(Npp8u) * 3 * width, height, cudaMemcpyDeviceToHost);
-            auto r3 = cudaMemcpy2D(result.data(), sizeof(Npp8u) * 3 * width, target, sizeof(Npp8u) * target_step, sizeof(Npp8u) * 3 * width, height, cudaMemcpyDeviceToHost);
-*/
+                head_ = tail_ = buffer_.begin();
         }
 
         return static_cast<int>(write_size);
     }
+
+    int WritableVirtualVideo::flush(struct fuse_file_info &info) {
+        writer_->flush();
+        return 0;
+    }
+
 } // namespace vfs

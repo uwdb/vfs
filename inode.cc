@@ -26,7 +26,8 @@ int Directory::getattr(struct stat *stat) {
     return 0;
 }
 
-int Directory::readdir(void *buffer, vfs::fuse_fill_dir_t filler, off_t offset, struct fuse_file_info&) {
+int Directory::readdir(void *buffer, vfs::fuse_fill_dir_t filler, off_t offset, struct fuse_file_info &info) {
+    info.keep_cache = 1;
     filler(buffer, ".", nullptr, 0);
     filler(buffer, "..", nullptr, 0);
     std::for_each(children().begin(), children().end(),[&filler, &buffer](auto &child) {

@@ -14,11 +14,12 @@ namespace vfs {
         int open(struct fuse_file_info&) override;
         int write(const char*, size_t, off_t, struct fuse_file_info&) override;
         int truncate(off_t) override { return 0; }
+        int flush(struct fuse_file_info&) override;
 
     private:
-        static std::unique_ptr<graphics::VideoWriter> get_writer(Video&, size_t height, size_t width);
+        static std::unique_ptr<VideoWriter> get_writer(Video&, size_t height, size_t width);
 
-        std::unique_ptr<graphics::VideoWriter> writer_;
+        std::unique_ptr<VideoWriter> writer_;
         std::vector<unsigned char> buffer_;
         std::vector<unsigned char>::iterator head_;
         std::vector<unsigned char>::iterator tail_;

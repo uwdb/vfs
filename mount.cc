@@ -216,9 +216,16 @@ namespace vfs {
             return -result;
     }
 
-    int Mount::flush(const std::filesystem::path &path, struct fuse_file_info&) {
+    int Mount::flush(const std::filesystem::path &path, struct fuse_file_info &info) {
+        int result;
+        File* file;
+
         LOG(INFO) << "flush: " << path;
-        return 0;
+
+        if((result = vfs::find<File>(path, root(), &file)) == 0)
+            return file->flush(info);
+        else
+            return -result;
     }
 
     int Mount::truncate(const std::filesystem::path &path, off_t newsize) {
@@ -253,9 +260,10 @@ namespace vfs {
 
 
     int Mount::run() {
-        char *argc[] {const_cast<char*>(path_.c_str()),
+        char *argv[] {const_cast<char*>(path_.c_str()),
                       const_cast<char*>(mount_.c_str()),
+                      "-obig_writes",
                       "-f"};
-        return fuse_main(std::size(argc), argc, &*operations_, this);
+        return fuse_main(std::size(argv), argv, &*operations_, this);
     }
 }
