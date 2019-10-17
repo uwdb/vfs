@@ -125,12 +125,15 @@ namespace vfs::graphics {
         GpuImage<channels, T>& slice(
                 GpuImage<channels, T> &output,
                 const copier &copier,
-                const NppiRect &region) const {
-            auto offset = region.y * GpuImage<channels>::step() + region.x * sizeof(T);
-            if(region.height != output.sheight() || region.width != output.swidth())
-                throw std::runtime_error("Slice region does not match output image size");
-            else if(copier(device() + offset, GpuImage<channels>::step(), output.device(), output.step(),
-                           {region.width, region.height}) != NPP_SUCCESS)
+                const NppiRect &input_region,
+                const NppiSize &output_region={0,0}) const {
+            auto input_offset = input_region.y * GpuImage<channels>::step() + input_region.x * channels * sizeof(T);
+            auto output_offset = output_region.height * output.step() + output_region.width * channels * sizeof(T);
+
+            //if(input_region.height != output.sheight() - output_region.height || input_region.width != output.swidth() - output_region.width)
+            //    throw std::runtime_error("Slice region does not match output image size");
+            /*else*/ if(copier(device() + input_offset, GpuImage<channels>::step(), output.device() + output_offset, output.step(),
+                           {input_region.width, input_region.height}) != NPP_SUCCESS)
                 throw std::runtime_error("Error copying during slice");
             return output;
         }
@@ -158,7 +161,7 @@ namespace vfs::graphics {
 
     struct Partitions {
         struct {
-            size_t x0, x1, y0, y1;
+            ssize_t x0, x1, y0, y1;
         } left, right;
     };
 
@@ -213,6 +216,48 @@ namespace vfs::graphics {
             return inverse_;
         }
 
+        std::array<double[3], 3> inverse3x3(const NppiSize translation={0,0}) const {
+            //TODO memoize this
+            std::array<double[3], 3> matrix;
+            const auto &linear = inverse();
+/*           inverted_ = false;
+            const_cast<float*>(values_.data())[5] += 200;
+            const auto &linear = inverse();
+            const_cast<float*>(values_.data())[5] -= 200;
+            inverted_ = false;*/
+
+            for (auto i = 0u; i < linear.size(); i++)
+                matrix.at(i / 3)[i % 3] = linear.at(i);
+
+            if(translation.width) {
+                matrix[0][0] += translation.width * matrix[2][0];
+                matrix[0][1] += translation.width * matrix[2][1];
+                matrix[0][2] += translation.width * matrix[2][2];
+            }
+
+            if(translation.height) {
+                matrix[1][0] += translation.height * matrix[2][0];
+                matrix[1][1] += translation.height * matrix[2][1];
+                matrix[1][2] += translation.height * matrix[2][2];
+            }
+
+
+            //matrix[0][0] += translation.height;
+            //matrix[0][1] += translation.width;
+
+            //matrix[0][2] += translation.width;
+            //***matrix[1][2] += translation.height;
+
+            //matrix[0][0] += translation.width;
+            //*matrix[0][1] += translation.width;
+            //*matrix[0][2] += translation.width; //*
+            //*matrix[2][0] += translation.height;
+            //*matrix[2][1] += translation.height;
+            //*matrix[2][2] += translation.height;
+
+            return matrix;
+        }
+
         Partitions partitions(const NppiSize &size) const {
 /*
     # Left overlap at x0
@@ -223,17 +268,60 @@ namespace vfs::graphics {
     x0 = H0n[0]
     p0 = int(x0)
  */
+            const auto &H = values_;
             const auto &Hi = inverse();
+
             // M[0]/[2], where M = H^{-1} \dot [0 0 1]
-            auto left0 = Hi[3] / Hi[8];
+            auto right0 = Hi[6] / Hi[8];
             // M[0]/[2], where M = H^{-1} \dot [width 0 1]
-            auto left1 = ((size.width * Hi[0]) + Hi[3]) / Hi[8];
+            auto right1 = ((size.width * Hi[0]) + Hi[6]) / Hi[8];
+
+            // M[0]/[2], where M = H \dot [width 0 1]
+            auto left0 = H[6] / H[8];
+            // M[0]/[2], where M = H \dot [width 0 1]
+            auto left1 = (size.width * H[0] + H[2]) / (size.width * H[6] + H[8]);
+
+            auto top_right0 = Hi[5] / Hi[8];
+            auto top_right1 = -((size.width * Hi[3]) + Hi[5]) / Hi[8];
+
+            /*auto h00 = (size.width * H[0]);
+            auto h02 = (1 * H[2]);
+            auto h0 = h00 + h02;
+
+            auto h20 = size.width * H[6];
+            auto h22 = H[8];
+            auto h2 = h20 + h22;
+            auto h = h0 / h2;*/
+
+            if(left1 > size.width) {
+                left0 = std::max(0.0f, left0 - left1 - size.width);
+                left1 = size.width;
+            }
+            if(right1 > size.width) {
+                right0 = std::max(0.0f, left0 - left1 - size.width);
+                right1 = size.width;
+            }
 
             assert(left0 >= -0.5);
-            assert(left1 >= -0.5 && left1 >= left0);
+            assert(left1 >= left0);
 
-            return {{static_cast<size_t>(left0), static_cast<size_t>(left1), 0, 0},
-                    {0, 0, 0, 0}};
+            assert(right0 >= -0.5);
+            assert(right1 >= right0);
+
+            //auto tmp = left1;
+            //left1 = right1;
+            //right1 = tmp;
+            //left0 += 256;
+            //right0 += 256;
+
+            return {{static_cast<size_t>(left0),
+                     static_cast<size_t>(left1) + static_cast<size_t>(left1) % 2,
+                     0,
+                     0},
+                    {static_cast<size_t>(right0),
+                     static_cast<size_t>(right1) + static_cast<size_t>(right1) % 2,
+                     static_cast<size_t>(top_right0) + static_cast<size_t>(top_right0) % 2,
+                     static_cast<size_t>(top_right1) + static_cast<size_t>(top_right1) % 2}};
             //std::make_pair<size_t, size_t>(static_cast<size_t>(left0), static_cast<size_t>(left1));
         }
 

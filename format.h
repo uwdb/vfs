@@ -1,6 +1,8 @@
 #ifndef VFS_FORMAT_H
 #define VFS_FORMAT_H
 
+#include "Codec.h"
+
 class VideoFormat {
 public:
     enum Value {
@@ -32,6 +34,20 @@ public:
             case HEVC:
             case H264:
                 return 128u * 1024u;
+            default:
+                throw std::runtime_error("Unsupported format");
+        }
+    }
+
+    const std::optional<lightdb::Codec> codec() const {
+        switch(value_) {
+            case RGB8:
+            case YUV422:
+                return {};
+            case HEVC:
+                return lightdb::Codec::hevc();
+            case H264:
+                return lightdb::Codec::h264();
             default:
                 throw std::runtime_error("Unsupported format");
         }

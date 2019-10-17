@@ -69,7 +69,7 @@ namespace vfs::graphics {
         int matches;
 
         configuration.left().Allocate(left.swidth(), left.sheight(), left.sbyte_step(), false, left.device(), nullptr);
-        configuration.right().Allocate(right.swidth(), right.sheight(), left.sbyte_step(), false, right.device(), nullptr);
+        configuration.right().Allocate(right.swidth(), right.sheight(), right.sbyte_step(), false, right.device(), nullptr);
 
         ExtractSift(configuration.left_data(), configuration.left(), configuration.octaves(), configuration.blur(),
                     configuration.threshold(), 0.0f, false, configuration.scratch());
@@ -78,7 +78,7 @@ namespace vfs::graphics {
 
         MatchSiftData(configuration.left_data(), configuration.right_data());
 
-        FindHomography(configuration.left_data(), static_cast<float*>(homography), &matches, 10000, 0.00f, 0.80f, 5.0);
+        FindHomography(configuration.left_data(), static_cast<float*>(homography), &matches, 10000, 0.00f, 1/*0.80f*/, 4 /*5.0*/);
 
         LOG(INFO) << "SIFT: Number of original features: (" <<  configuration.left_data().numPts << ' ' <<
                                                                 configuration.right_data().numPts << ')';

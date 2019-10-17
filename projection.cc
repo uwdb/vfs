@@ -76,28 +76,39 @@ def partition(H, Hi, left):
                                 static_cast<int>(output.left().width()),
                                 static_cast<int>(output.left().height())});
         // Overlap
-        if(output.has_overlap())
+        /*if(output.has_overlap())
             left.slice(output.overlap(),
                         nppiCopy_8u_C3R,
-                        NppiRect{static_cast<int>(output.partitions().left.x0),
+                        NppiRect{output.widths().left,
                                  0,
-                                 output.overlap().swidth(),
-                                 output.overlap().sheight()});
+                                 output.widths().overlap,
+                                 //output.overlap().swidth(),
+                                 left.sheight()}, //output.overlap().sheight()},
+                        {output.overlap().swidth() - output.widths().overlap,
+                         (output.overlap().sheight() - left.sheight()) / 2});*/
         // Right
         if(output.has_right())
             right.slice(output.right(),
                         nppiCopy_8u_C3R,
-                        NppiRect{static_cast<int>(output.partitions().left.x0),
+                        NppiRect{right.swidth() - output.widths().right, //static_cast<int>(output.partitions().right.x1),
                                  0,
                                  output.right().swidth(),
                                  output.right().sheight()});
         return output;
     }
 
-    void project(const GpuImage<3, Npp8u> &input, GpuImage<3, Npp8u> &output, const Homography& homography) {
-        if(nppiWarpPerspective_8u_C3R(input.device(), input.size(), input.step(), input.extent(),
+    void project(const GpuImage<3, Npp8u> &input, GpuImage<3, Npp8u> &output,
+                 const Homography& homography,
+                 const NppiSize &translation={0,0}) {
+        //NppiRect input_roi = {0, 0, output.swidth(), output.sheight()};
+        //NppiSize translation {0, 0}; //200}; //0, (output.size().width - input.size().width) / 2 - 100};
+        //auto offset = 200 * input.step();
+        //auto e = output.extent();
+        //e.y = 200;
+        //e.height = e.height - 200;
+        if(nppiWarpPerspective_8u_C3R(input.device(), input.size(), input.step(), input.extent(), //input_roi,
                                   output.device(), output.step(), output.extent(),
-                                  homography.matrix().data(),
+                                  homography.inverse3x3(translation).data(), //.matrix().data(),
                                   NPPI_INTER_NN) != NPP_SUCCESS)
         throw std::runtime_error("Projection failed");
     }

@@ -12,7 +12,8 @@ std::string usage() {
 void catf() {
     sleep(1);
     system("mkdir ../../mount/wolf");
-    system("cat ../visualroad1.rgb > ../../mount/wolf/960x540.rgb");
+    //system("cat ../45overlap/visualroad1.rgb > ../../mount/wolf/960x540.rgb");
+    //system("cat ../overlap.rgb > ../../mount/wolf/3840x2160.rgb");
     printf("Done\n");
 }
 

@@ -9,16 +9,27 @@ namespace vfs::graphics {
         PartitionBuffer(const GpuImage<3, Npp8u> &input, const Homography &homography)
             : homography_(homography),
               partitions_(homography.partitions(input.size())),
-              widths_{partitions_.left.x0,
-                      partitions_.left.x1 - partitions_.left.x0,
-                      input.height() - partitions_.left.x0},
+              //widths_{input.width()partitions_.left.x0,
+              widths_{input.swidth() - partitions_.left.x1, // + partitions_.left.x1 % 2,
+                      partitions_.left.x1, // - partitions_.left.x1 % 2,
+                      partitions_.right.x1}, // + partitions_.right.x1 % 2},
+              //widths_{partitions_.left.x1 + partitions_.left.x1 % 2,
+              //        input.width() - partitions_.left.x1 - partitions_.left.x1 % 2,
+              //        //partitions_.left.x1 - partitions_.left.x0,
+              //        input.width() - partitions_.right.x1 + partitions_.right.x1 % 2},
+              //widths_{partitions_.left.x0,
+              //        partitions_.left.x1 - partitions_.left.x0,
+              //        input.width() - partitions_.right.x1},
+              right_height_{1200}, //2*partitions_.right.y1},
               frames_{make_frame(input.allocator(), input.height(), widths_.left),
-                      make_frame(input.allocator(), input.height(), widths_.overlap),
-                      make_frame(input.allocator(), input.height(), widths_.overlap)}
+                      make_frame(input.allocator(), input.height() + right_height_, widths_.overlap), //input.width()),
+                      //make_frame(input.allocator(), input.height(), widths_.overlap),
+                      make_frame(input.allocator(), input.height(), widths_.right)}
         { }
 
         const Homography& homography() const { return homography_; }
         const Partitions& partitions() const { return partitions_; }
+        const auto &widths() const { return widths_; }
 
         bool has_left() const { return frames_.left != nullptr; }
         bool has_overlap() const { return frames_.overlap != nullptr; }
@@ -26,6 +37,10 @@ namespace vfs::graphics {
         GpuImage<3, Npp8u>& left() const { return *frames_.left; }
         GpuImage<3, Npp8u>& overlap() const { return *frames_.overlap; }
         GpuImage<3, Npp8u>& right() const { return *frames_.right; }
+
+        struct Widths {
+            ssize_t left, overlap, right;
+        };
 
     private:
         std::unique_ptr<GpuImage<3, Npp8u>> make_frame(const GpuImage<3, Npp8u>::allocator_t &allocator,
@@ -37,9 +52,8 @@ namespace vfs::graphics {
 
         Homography homography_;
         Partitions partitions_;
-        struct {
-            size_t left, overlap, right;
-        } widths_;
+        Widths widths_;
+        ssize_t right_height_;
         struct {
             std::unique_ptr<GpuImage<3, Npp8u>> left;
             std::unique_ptr<GpuImage<3, Npp8u>> overlap;
@@ -50,7 +64,7 @@ namespace vfs::graphics {
     PartitionBuffer& partition(const GpuImage<3, Npp8u> &left, const GpuImage<3, Npp8u> &right, PartitionBuffer &output);
     //std::tuple<GpuImage<3, Npp8u>, GpuImage<3, Npp8u>, GpuImage<3, Npp8u>> partition(
     //        const GpuImage<3, Npp8u>&, const Homography&);
-    void project(const GpuImage<3, Npp8u> &input, GpuImage<3, Npp8u> &output, const Homography&);
+    void project(const GpuImage<3, Npp8u> &input, GpuImage<3, Npp8u> &output, const Homography&, const NppiSize&);
 }
 
 #endif //VFS_PROJECTION_H

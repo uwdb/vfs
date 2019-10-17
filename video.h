@@ -41,6 +41,8 @@ namespace vfs {
             return 0;
         }*/
 
+        const Policy &policy() const { return policy_; }
+
         bool has_native_child() {
             return std::any_of(children().begin(), children().end(),
                                [](const auto &child) { return dynamic_cast<const NativeVideo*>(child.get()) != nullptr; });
@@ -80,6 +82,8 @@ namespace vfs {
                 auto time_start = std::stof('0' + matches[7].str());
                 auto time_end = std::stof('0' + matches[8].str());
                 auto format = VideoFormat::get_from_extension(path() / name);
+                auto framerate = 30u;
+                auto gop_size = 30u;
 
                 //if(!has_native_child() &&
                 //   crop_left == 0 && crop_top == 0 &&
@@ -87,7 +91,7 @@ namespace vfs {
                 //   time_start == 0 && time_end == 0)
                 //    return std::optional<std::reference_wrapper<Inode>>{std::reference_wrapper(emplace_child(std::make_unique<WritableVirtualVideo>(name, *this, width, height, 0777)))};
                 //else if(has_native_child())
-                    return std::optional<std::reference_wrapper<Inode>>{std::reference_wrapper(emplace_child(std::make_unique<VirtualVideo>(name, *this, format, height, width, 0777)))};
+                    return std::optional<std::reference_wrapper<Inode>>{std::reference_wrapper(emplace_child(std::make_unique<VirtualVideo>(name, *this, format, height, width, framerate, gop_size, 0777)))};
                 //else
                 //    return {};
             }

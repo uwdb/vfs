@@ -47,4 +47,4 @@ add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
 message(INFO ${CUDA_LIBRARIES})
 target_link_libraries(lib${PROJECT_NAME} ${FUSE_LIBRARIES} ${GLOG_LIBRARIES} ${CUDA_CUDA_LIBRARY} ${CUDA_nvcuvenc_LIBRARY} dl nvcuvid stdc++fs)
-target_link_libraries(${PROJECT_NAME} cudart ${CUDA_npp_LIBRARY} ${CUDA_nppi_LIBRARY} pthread /home/bhaynes/projects/CudaSift/build/libcudasift_static.a /home/bhaynes/projects/lightdb/cmake-build-debug/core/liblightdb.a libvfs)
+target_link_libraries(${PROJECT_NAME} cudart ${CUDA_npp_LIBRARY} ${CUDA_nppi_LIBRARY} pthread /home/bhaynes/projects/CudaSift/build/libcudasift_static.a /home/bhaynes/projects/lightdb/cmake-build-relwithdebinfo/core/liblightdb.a libvfs)

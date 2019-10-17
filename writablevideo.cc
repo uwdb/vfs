@@ -14,18 +14,44 @@
 #define HACK_INTERLEAVE_MULTIPLIER 2
 
 namespace vfs {
-    std::unique_ptr<VideoWriter> WritableVirtualVideo::get_writer(Video &video, const size_t height, const size_t width) {
-        return std::make_unique<JointWriter<3>>(height, width, OneTimeHomographyUpdate{});
+    std::unique_ptr<VideoWriter> WritableVirtualVideo::get_writer() {
+        const auto codec = format().codec();
+        if(!codec.has_value()) {
+            if(video().policy().joint().empty())
+                return std::make_unique<CompressionWriter>(video().path(), video().policy().default_codec(), framerate(), gop_size());
+            else
+                return std::make_unique<JointWriter<3>>(height(), width(), OneTimeHomographyUpdate{});
+        } else
+            // TODO DirectIOWriter
+            throw std::runtime_error("Not implemented");
+
+/*        switch(format()) {
+            case VideoFormat::RGB8:
+                throw std::runtime_error("Not implemented");
+            case VideoFormat::YUV422:
+                throw std::runtime_error("Not implemented");
+            case VideoFormat::H264:
+            case VideoFormat::HEVC:
+                auto &codec = format() == VideoFormat::H264 ? lightdb::Codec::h264() : lightdb::Codec::hevc();
+                return video().policy().joint().empty()
+                    ? std::make_unique<CompressionWriter>(video().path(), codec, framerate(), gop_size())
+                    : std::make_unique<JointWriter<3>>(height(), width(), OneTimeHomographyUpdate{});
+            default:
+                throw std::runtime_error("Unsupported format");
+        }*/
+        //return std::make_unique<JointWriter<3>>(height, width, OneTimeHomographyUpdate{});
     }
 
     WritableVirtualVideo::WritableVirtualVideo(const VirtualVideo &base)
-        : WritableVirtualVideo(base.name(), base.video(), base.format(), base.height(), base.width(), base.mode())
+        : WritableVirtualVideo(base.name(), base.video(), base.format(), base.height(), base.width(),
+                               base.framerate(), base.gop_size(), base.mode())
     { }
 
     WritableVirtualVideo::WritableVirtualVideo(const std::string &name, Video &video, VideoFormat format,
-                                               size_t height, size_t width, mode_t mode)
-        : VirtualVideo(name, video, format, height, width, mode),
-          writer_(get_writer(video, height, width)),
+                                               size_t height, size_t width, size_t framerate, size_t gop_size,
+                                               mode_t mode)
+        : VirtualVideo(name, video, format, height, width, framerate, gop_size, mode),
+          writer_(get_writer()),
           buffer_(/*TODO*/HACK_INTERLEAVE_MULTIPLIER * format.buffer_size(height, width)),
           head_(buffer_.begin()),
           tail_(head_),

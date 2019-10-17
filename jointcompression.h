@@ -5,17 +5,11 @@
 #include "homography.h"
 #include "projection.h"
 #include "compressionwriter.h"
+#include "videowriter.h"
 
 namespace vfs {
 template<size_t channels>
 class HomographyUpdateStrategy;
-
-class VideoWriter {
-public:
-    virtual void write(const std::vector<unsigned char>::iterator&,
-                       const std::vector<unsigned char>::iterator&) = 0;
-    virtual void flush() = 0;
-};
 
 template<size_t channels>
 class JointWriter: public VideoWriter {
@@ -27,22 +21,22 @@ public:
           configuration_{height, width},
           partitions_{},
           homography_update_{std::make_unique<HomographyUpdateStrategy>(homography_update)},
-          left_writer_{"/tmp/v/left", 30},
-          overlap_writer_{"/tmp/v/overlap", 30},
-          right_writer_{"/tmp/v/right", 30}
+          left_writer_{"/tmp/v/left", lightdb::Codec::h264(), 30, 30},
+          overlap_writer_{"/tmp/v/overlap", lightdb::Codec::h264(), 30, 30},
+          right_writer_{"/tmp/v/right", lightdb::Codec::h264(), 30, 30}
     { }
 
     void write(const std::vector<unsigned char>::iterator &left,
                const std::vector<unsigned char>::iterator &right) override {
-        homography_update_->update(*this);
-
-        assert(partitions_);
-
         left_frame_.upload(left);
         right_frame_.upload(right);
 
+        homography_update_->update(*this);
+        assert(partitions_);
+
+        graphics::project(right_frame_, partitions_->overlap(), partitions_->homography(),
+                          {-partitions_->widths().left, (partitions_->overlap().sheight() - right_frame_.sheight()) / 2});
         graphics::partition(left_frame_, right_frame_, *partitions_);
-        graphics::project(right_frame_, partitions_->overlap(), partitions_->homography());
 
         if(partitions_->has_left())
             left_writer_.write(partitions_->left());
