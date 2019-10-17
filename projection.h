@@ -20,7 +20,7 @@ namespace vfs::graphics {
               //widths_{partitions_.left.x0,
               //        partitions_.left.x1 - partitions_.left.x0,
               //        input.width() - partitions_.right.x1},
-              right_height_{1200}, //2*partitions_.right.y1},
+              right_height_{2*partitions_.right.y1},
               frames_{make_frame(input.allocator(), input.height(), widths_.left),
                       make_frame(input.allocator(), input.height() + right_height_, widths_.overlap), //input.width()),
                       //make_frame(input.allocator(), input.height(), widths_.overlap),

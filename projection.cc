@@ -76,7 +76,7 @@ def partition(H, Hi, left):
                                 static_cast<int>(output.left().width()),
                                 static_cast<int>(output.left().height())});
         // Overlap
-        /*if(output.has_overlap())
+        if(output.has_overlap())
             left.slice(output.overlap(),
                         nppiCopy_8u_C3R,
                         NppiRect{output.widths().left,
@@ -85,7 +85,7 @@ def partition(H, Hi, left):
                                  //output.overlap().swidth(),
                                  left.sheight()}, //output.overlap().sheight()},
                         {output.overlap().swidth() - output.widths().overlap,
-                         (output.overlap().sheight() - left.sheight()) / 2});*/
+                         (output.overlap().sheight() - left.sheight()) / 2});
         // Right
         if(output.has_right())
             right.slice(output.right(),
